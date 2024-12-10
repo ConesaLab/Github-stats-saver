@@ -7,8 +7,6 @@ Created on Tue Dec 10 12:08:47 2024
 """
 
 import tarfile
-import gzip
-import urllib
 
 import requests
 from requests.auth import HTTPBasicAuth
@@ -38,5 +36,5 @@ def _tar_gz(files: list, filename: str) -> None:
 
 def _upload(url: str, tarfile: str, remote_name:str, user:str, password:str):
     files = open(tarfile, 'rb')
-    r = requests.put("{}/{}".format(url, remote_name), data=files, auth = HTTPBasicAuth(user, password))
-    pass
+    requests.put("{}/{}".format(url, remote_name), data=files, auth = HTTPBasicAuth(user, password))
+    

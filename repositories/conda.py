@@ -6,8 +6,6 @@ Created on Mon Oct 21 09:37:21 2024
 @author: frobledo
 """
 
-import os
-import datetime
 import json
 import logging
 import urllib

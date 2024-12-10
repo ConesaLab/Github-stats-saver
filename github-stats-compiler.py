@@ -16,7 +16,6 @@ usage: github-stats-compiler.py -k <github_passkey> -u <owner> -r <repository
 import argparse
 import datetime
 import logging
-import json
 import os
 import urllib.request
 
