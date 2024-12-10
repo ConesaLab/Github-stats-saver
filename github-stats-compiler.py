@@ -20,10 +20,10 @@ import json
 import os
 import urllib.request
 
-# Modules to connect to the services
+
+# Modules to connect to the services (including backup)
+import backup
 from repositories import docker, github, conda
-
-
 
 def parseargs():
     """
@@ -49,6 +49,9 @@ def parseargs():
     parser.add_argument("-p", "--pages_info", type=str, help="Filename to save pages info", default="pages_visit.csv")
     parser.add_argument("-l", "--logfile", type=str, help="Filename to save logging info", default="monitor.log")
     parser.add_argument("-k", "--apikey", type=str, help="Github API key")
+    parser.add_argument("-b", "--backup", type=str, help="Webdav url to save the backup", default=None)
+    parser.add_argument("-bu", "--backup_user", type=str, help="Webdav user to save the backup", default=None)
+    parser.add_argument("-bp", "--backup_password", type=str, help="Webdav password to the backup", default=None)
     return parser.parse_args()
 
 def main():
@@ -118,6 +121,21 @@ def main():
     except urllib.error.HTTPError as httperror:
         logger_conda = logging.getLogger("Conda")
         logger_conda.error("Error connecting to Conda: {error}".format(error=httperror))
+
+    if (args.backup is not None):
+        
+        logger_backup = logging.getLogger("Backup")
+        try:
+            files:list = [args.clone_info, args.pages_info, args.docker, args.conda, args.referrals_info, args.pages_info, args.conda, args.download_info]
+            files:list = list(filter(os.path.exists, files))
+            logger_backup.info("Backup of {} files".format(len(files)))
+            tar_gz_file:str = "backup-stats-{}.tar.gz".format(datetime.datetime.today().strftime('%Y-%m-%d'))
+            backup._tar_gz(files, tar_gz_file)
+            logger_backup.info("Generated backup file: {}".format(tar_gz_file))
+            backup._upload(args.backup, tar_gz_file, tar_gz_file, args.backup_user, args.backup_password)
+            logger_backup.info("Backup file uploaded succesfully")
+        except urllib.error.HTTPError as neterror:
+            logger_backup.error("Could not upload backup because of error: {}".format(neterror))
 
 if __name__ == "__main__":
     main()
