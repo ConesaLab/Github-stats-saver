@@ -42,6 +42,8 @@ def parseargs():
     parser.add_argument("-v", "--views_info", type=str, help="Filename to save views info", default="visits.csv")
     parser.add_argument("-d", "--download_info", type=str, help="Filename to save clone info", default="download.csv")
     parser.add_argument("-docker", "--docker", type=str, help="Filename to save docker info", default="docker_stats.csv")
+    parser.add_argument("-du", "--docker_user", type=str, help="Username of Dockerhub", default=None)
+    parser.add_argument("-dr", "--docker_repo", type=str, help="Repo name in dockerhub", default=None)
     parser.add_argument("-conda", "--conda", type=str, help="Filename to save conda info", default="conda_stats.csv")
     parser.add_argument("-ref", "--referrals_info", type=str, help="Filename to save clone info", default="referrals.csv")
     parser.add_argument("-p", "--pages_info", type=str, help="Filename to save pages info", default="pages_visit.csv")
@@ -101,8 +103,12 @@ def main():
     except urllib.error.HTTPError as httperror:
         logger.error("Could not connect to GITHUB API due to the error: {error}. If its 401 Unauthorized or 403 Forbidden, please check that the api key has push permission".format(error=httperror))
     try:
-        docker_stats = docker.get_docker_stats(docker.REPOSITORY_API_URL, args.user, args.repo)
-        docker.save_docker_stats(docker_stats[0], docker_stats[1], args.docker)
+        if (args.docker_user is None or args.docker_repo is None):
+            logging.getLogger("Docker")
+            logging.info("No Docker credentials provided: docker user or repository given")
+        else:
+            docker_stats = docker.get_docker_stats(docker.REPOSITORY_API_URL, args.docker_user, args.docker_repo)
+            docker.save_docker_stats(docker_stats[0], docker_stats[1], args.docker)
     except urllib.error.HTTPError as httperror:
         logger_docker = logging.getLogger("Docker")
         logger_docker.error("Error connecting to Dockerhub: {error}".format(error=httperror))
