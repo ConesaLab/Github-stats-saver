@@ -126,7 +126,7 @@ def main():
         
         logger_backup = logging.getLogger("Backup")
         try:
-            files:list = [args.clone_info, args.pages_info, args.docker, args.conda, args.referrals_info, args.pages_info, args.conda, args.download_info]
+            files:list = [args.clone_info, args.views_info, args.download_info, args.pages_info, args.docker, args.conda, args.referrals_info, args.conda]
             files:list = list(filter(os.path.exists, files))
             logger_backup.info("Backup of {} files".format(len(files)))
             tar_gz_file:str = "backup-stats-{}.tar.gz".format(datetime.datetime.today().strftime('%Y-%m-%d'))
