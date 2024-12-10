@@ -33,13 +33,10 @@ def _tar_gz(files: list, filename: str) -> None:
     """
     with tarfile.open(filename, "w:gz") as tar:
         for file in files:
-            print(file)
             tar.add(file)
     
 
 def _upload(url: str, tarfile: str, remote_name:str, user:str, password:str):
     files = open(tarfile, 'rb')
     r = requests.put("{}/{}".format(url, remote_name), data=files, auth = HTTPBasicAuth(user, password))
-    print(r.text)
-    print(r.content)
     pass
