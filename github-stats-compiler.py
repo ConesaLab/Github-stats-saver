@@ -19,9 +19,8 @@ import logging
 import os
 import urllib.request
 
-
 # Modules to connect to the services (including backup)
-import backup
+from utils import backup
 from repositories import docker, github, conda
 
 def parseargs():
