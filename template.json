@@ -1,0 +1,54 @@
+{
+ "root_folder":"",
+ "backup" : {
+     "activate": false,
+     "method": "webdav",
+     "compression": ["tar.gz"],
+     "user": "",
+     "password": "",
+     "backup_url_folder":""
+    },
+
+ "tools": {
+    "sqanti3": {
+        "github": {
+            "owner":"",
+            "repo":"",
+            "apikey":"",
+            "savefile_prefix":""
+            },
+
+        "docker" : {
+            "owner":"",
+            "repo": "",
+            "apikey": "",
+            "savefile":""
+        }
+    },
+
+    "MOSim": {
+  
+     "github": {
+         "owner": "",
+         "repo": "",
+         "apikey":"",
+         "savefile_prefix":""
+         },
+
+     "bioconductor": {
+         "package": "",
+         "savefile":""
+         }
+     },
+
+    "get_homologues" : {
+    
+        "conda" : {
+            "owner":"",
+            "repo":"",
+            "savefile":""
+        }
+    }
+ }
+ 
+}
