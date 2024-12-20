@@ -36,5 +36,6 @@ def _tar_gz(files: list, filename: str) -> None:
 
 def _upload(url: str, tarfile: str, remote_name:str, user:str, password:str):
     files = open(tarfile, 'rb')
-    requests.put("{}/{}".format(url, remote_name), data=files, auth = HTTPBasicAuth(user, password))
+    req = requests.put("{}/{}".format(url, remote_name), data=files, auth = HTTPBasicAuth(user, password))
+    return req.status_code
     

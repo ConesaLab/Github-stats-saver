@@ -183,15 +183,21 @@ def main():
         # The most usual will be the network connection error to the webdab server
         # But maybe there are others
         try:
-            files:list = [args.clone_info, args.views_info, args.download_info, args.pages_info, args.docker, args.conda, args.referrals_info]
-            files:list = list(filter(os.path.exists, files))
+            files:list = [os.path.join(config["root_folder"], file) for file in os.listdir(config["root_folder"]) if file.endswith(".csv")]
             logger_backup.info("Backup of {} files".format(len(files)))
             logger_backup.debug("Files to backup: {}".format(files))
-            tar_gz_file:str = "backup-stats-{}.tar.gz".format(datetime.datetime.today().strftime('%Y-%m-%d'))
+            filename:str = "backup-stats-{}.tar.gz".format(datetime.datetime.today().strftime('%Y-%m-%d'))
+            tar_gz_file:str = os.path.join(config["root_folder"], filename)
+            logger_backup.debug("Backup file: {}".format(tar_gz_file))
             backup._tar_gz(files, tar_gz_file)
             logger_backup.info("Generated backup file: {}".format(tar_gz_file))
-            backup._upload(args.backup, tar_gz_file, tar_gz_file, args.backup_user, args.backup_password)
-            logger_backup.info("Backup file uploaded succesfully")
+            status = backup._upload(backup_data["backup_url_folder"], tar_gz_file, filename, backup_data["user"], backup_data["password"])
+            logger_backup.debug("Status code: {}".format(status))
+            if (status == 204):
+                logger_backup.info("Backup file uploaded succesfully")
+            elif (status == 404):
+                logger_backup.error("Remote folder to store the backup is not found: {}".format(backup_data["backup_url_folder"]))
+                
         except urllib.error.HTTPError as neterror:
             logger_backup.error("Could not upload backup because of error: {}".format(neterror))
         except Exception as error:
