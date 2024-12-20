@@ -20,8 +20,8 @@ def connect_to_docker_API(url:str, owner:str, repo:str) -> dict:
     response = urllib.request.urlopen(request)
     return json.loads(response.read())
 
-def get_docker_stats(API:str, owner:str, repo:str) -> (int,int):
-    data:dict = connect_to_docker_API(API, owner, repo)
+def get_docker_stats(API:str, owner:str, repo:str) -> tuple[int,int]:
+    data:dict = connect_to_docker_API(REPOSITORY_API_URL, owner, repo)
     pulls:int = data["pull_count"]
     stars:int = data["star_count"]
     logger.info("Pulls: {pulls}".format(pulls=pulls))

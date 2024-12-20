@@ -20,7 +20,7 @@ import os
 import urllib.request
 
 # Modules to connect to the services (including backup)
-from utils import backup
+from utils import backup, config_reader
 from repositories import docker, github, conda
 
 def parseargs():
@@ -34,106 +34,175 @@ def parseargs():
 
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("-u", "--user", type=str, help="User owner of the repository in github", required=True)
-    parser.add_argument("-r", "--repo", type=str, help="name of repository in github", required=True)
-    parser.add_argument("-c", "--clone_info", type=str, help="Filename to save clone info", default="clone.csv")
-    parser.add_argument("-v", "--views_info", type=str, help="Filename to save views info", default="visits.csv")
-    parser.add_argument("-d", "--download_info", type=str, help="Filename to save clone info", default="download.csv")
-    parser.add_argument("-docker", "--docker", type=str, help="Filename to save docker info", default="docker_stats.csv")
-    parser.add_argument("-du", "--docker_user", type=str, help="Username of Dockerhub", default=None)
-    parser.add_argument("-dr", "--docker_repo", type=str, help="Repo name in dockerhub", default=None)
-    parser.add_argument("-conda", "--conda", type=str, help="Filename to save conda info", default="conda_stats.csv")
-    parser.add_argument("-ref", "--referrals_info", type=str, help="Filename to save clone info", default="referrals.csv")
-    parser.add_argument("-p", "--pages_info", type=str, help="Filename to save pages info", default="pages_visit.csv")
     parser.add_argument("-l", "--logfile", type=str, help="Filename to save logging info", default="monitor.log")
-    parser.add_argument("-k", "--apikey", type=str, help="Github API key")
-    parser.add_argument("-b", "--backup", type=str, help="Webdav url to save the backup", default=None)
-    parser.add_argument("-bu", "--backup_user", type=str, help="Webdav user to save the backup", default=None)
-    parser.add_argument("-bp", "--backup_password", type=str, help="Webdav password to the backup", default=None)
+    parser.add_argument("-c", "--config", type=str, help="Config with the repositories to work with", default=None, required=True)
+    parser.add_argument("-d", "--debug", action="store_true", help="Show debug logging info", default=False)
     return parser.parse_args()
 
-def main():
-    args = parseargs()    
-    logger = logging.getLogger("Github") # One logger per repository to make easy to know what failed
-    logging.basicConfig(filename=args.logfile, level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    logger.info("="*20+" Starting execution "+"="*20)
-    logger.info("Connecting to GITHUB API to get clone info")
-    # There are a lot of errors to handle when trying to connect to the API.
-    # Mainly we face the problem of unauthorized of forbidden queries to the
-    # API. However, there might be other problems that, even unlikely
-    # we might face in the future: API changes or redirection of URL, 
+def get_github_stats(user:str, repo:str, apikey:str, save_prefix:str):
+    logger = logging.getLogger("github")
     try: 
-        clone_info = github.connect_to_API(github.GITHUB_CLONES_API_URL, args.apikey, args.user, args.repo)
+        # Connect to the api, get the info and write it into a csv file
+        # An HTTPError is raised if could not connect.
+        # TODO: Show the exact error code in the log
+        clone_info = github.connect_to_API(github.GITHUB_CLONES_API_URL, apikey, user, repo)
         logger.info("Clone info retrieved")
-        logger.info("Saving clone info into {file}".format(file=args.clone_info))
-        github.save_clone_info(clone_info, args.clone_info)
+        clone_file:str = save_prefix+"_clone.csv"
+        logger.info("Saving clone info into {file}".format(file=clone_file))
+        github.save_clone_info(clone_info, clone_file)
     except urllib.error.HTTPError as httperror:
         logger.error("Could not connect to GITHUB API due to the error: {error}. If its 401 Unauthorized or 403 Forbidden, please check that the api key has push permission".format(error=httperror))
-    
     try:
         logger.info("Connecting to GITHUB API to get download info")
-        download_info = github.get_downloads_of_release(args.user, args.repo)
+        download_info = github.get_downloads_of_release(user, repo)
+        download_file:str = save_prefix+"_downloads.csv"
         logger.info("Download info retrieved")
         try:
-            github.save_download_info(download_info, args.download_info)
+            github.save_download_info(download_info, download_file)
         except Exception as e:
             logger.error("Could connect to API but not save the data. Check disk usage or availability")
             print(e)
     except Exception:
-        logger.error("Could not get info from: "+github.GITHUB_API_URL.format(owner=args.user, repo=args.repo))
+        logger.error("Could not get info from: "+github.GITHUB_API_URL.format(owner=user, repo=repo))
     
     try: 
         logger.info("Connecting to GITHUB API to get views data")
-        views = github.connect_to_API(github.GITHUB_TRAFFIC_VIEWS, args.apikey, args.user, args.repo)
+        views = github.connect_to_API(github.GITHUB_TRAFFIC_VIEWS, apikey, user, repo)
+        views_file:str = save_prefix+"_views.csv"
         logger.info("Retrieved views data")
-        github.save_views_info(views, args.views_info)
+        github.save_views_info(views, views_file)
     except urllib.error.HTTPError as httperror:
         logger.error("Could not connect to GITHUB API due to the error: {error}. If its 401 Unauthorized or 403 Forbidden, please check that the api key has push permission".format(error=httperror))
     try: 
         logger.info("Connecting to GITHUB API to get popular pages data")
-        pages = github.connect_to_API(github.GITHUB_POPULAR_PATHS, args.apikey, args.user, args.repo)
+        pages_file:str = save_prefix+"_pages.csv"
+        pages = github.connect_to_API(github.GITHUB_POPULAR_PATHS, apikey, user, repo)
         logger.info("Retrieved popular pages data")
-        github.save_pages_info(pages, args.pages_info)
+        github.save_pages_info(pages, pages_file)
     except urllib.error.HTTPError as httperror:
         logger.error("Could not connect to GITHUB API due to the error: {error}. If its 401 Unauthorized or 403 Forbidden, please check that the api key has push permission".format(error=httperror))
     try:
         logger.info("Connecting to GITHUB API to get referrals data")
-        referrals = github.connect_to_API(github.GITHUB_REFFERAL_SOURCE, args.apikey, args.user, args.repo)
+        referrals = github.connect_to_API(github.GITHUB_REFFERAL_SOURCE, apikey, user, repo)
+        referrals_file:str = save_prefix+"_referrals.csv"
         logger.info("Saving referral info")
-        github.save_referral_info(referrals, args.referrals_info)
+        github.save_referral_info(referrals, referrals_file)
     except urllib.error.HTTPError as httperror:
         logger.error("Could not connect to GITHUB API due to the error: {error}. If its 401 Unauthorized or 403 Forbidden, please check that the api key has push permission".format(error=httperror))
+    pass
+
+def get_docker_stats(user:str, repo:str, apikey:str, save_file:str):
+    logging.getLogger("Docker")
     try:
-        if (args.docker_user is None or args.docker_repo is None):
-            logging.getLogger("Docker")
-            logging.info("No Docker credentials provided: docker user or repository given")
-        else:
-            docker_stats = docker.get_docker_stats(docker.REPOSITORY_API_URL, args.docker_user, args.docker_repo)
-            docker.save_docker_stats(docker_stats[0], docker_stats[1], args.docker)
+        docker_stats = docker.get_docker_stats(apikey, user, repo)
+        docker.save_docker_stats(docker_stats[0], docker_stats[1], save_file)
     except urllib.error.HTTPError as httperror:
         logger_docker = logging.getLogger("Docker")
         logger_docker.error("Error connecting to Dockerhub: {error}".format(error=httperror))
-    try:
-        conda_stats = conda.get_conda_stats(conda.CONDA_API, args.user, args.repo)
-        conda.save_conda_stats(conda_stats[0], conda_stats[1], args.conda)
-    except urllib.error.HTTPError as httperror:
-        logger_conda = logging.getLogger("Conda")
-        logger_conda.error("Error connecting to Conda: {error}".format(error=httperror))
 
-    if (args.backup is not None):
-        
+def get_bioconductor_stats(package:str, savefile:str):
+    pass
+
+def get_conda_stats(owner:str, repo:str, savefile:str):
+    logger_conda = logging.getLogger("Conda")
+    try:
+        conda_stats = conda.get_conda_stats(conda.CONDA_API, owner, repo)
+        conda.save_conda_stats([conda_stats], savefile)
+    except urllib.error.HTTPError as httperror:
+        logger_conda.error("Error connecting to Conda API: {error}".format(error=httperror))
+
+    pass
+
+def get_stats_for_tool(tool:dict, tool_name:str, folder:str):
+    # Logger for the tool
+    logger = logging.getLogger(tool_name)
+    logger.info("Starting: {}".format(tool_name))
+
+    for repository in tool.keys():
+        logger.info("Connecting to {}".format(repository))
+        match repository:
+
+            case "github": get_github_stats(tool[repository]["owner"], tool[repository]["repo"], 
+                                            tool[repository]["apikey"], os.path.join(folder, tool[repository]["savefile_prefix"]))
+                
+            case "docker": get_docker_stats(tool[repository]["owner"], tool[repository]["repo"],
+                                            tool[repository]["apikey"], os.path.join(folder, tool[repository]["savefile"]))
+                
+            case "conda":  get_conda_stats(tool[repository]["owner"], 
+                                           tool[repository]["repo"],
+                                           os.path.join(folder, tool[repository]["savefile"]))
+            case "cran":   pass
+
+            case "bioconductor": get_bioconductor_stats(tool[repository]["package"], 
+                                                        os.path.join(folder, tool[repository]["savefile"]))
+            case _:
+                logging.error("Repository not supported: {}".format(repository))
+    pass
+
+def main():
+    # There are a lot of errors to handle when trying to connect to the API.
+    # Mainly we face the problem of unauthorized of forbidden queries to the
+    # API. However, there might be other problems that, even unlikely
+    # we might face in the future: API changes or redirection of URL, 
+    
+
+    # Check logging level from arguments to show debug info or not
+    # Debug mode can be activated by using the --debug flag
+    # Else only shos info messages
+    args = parseargs()
+    loglevel = logging.DEBUG if args.debug else logging.INFO 
+    logging.basicConfig(filename=args.logfile, level=loglevel, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    # One logger per repository to make easy to know where failed
+    # GSS (Github stats saver) is the one used for any message not related 
+    # to a specific element of the code (repositories, backup, etc)
+    logger = logging.getLogger("GSS") 
+
+    logger.info("="*20+" Starting execution "+"="*20)
+    logger.debug("Debug mode activated: saving into {}".format(args.logfile))
+    logger.info("Loading config file from: {path}".format(path=args.config))
+
+    config = config_reader.load_config(args.config)
+
+    logger.debug("Config file loaded")
+
+    tools_data = config["tools"]
+
+    logger.info("{} tools to monitor".format(len(tools_data)))
+    logger.debug("{} tools ".format(tools_data))
+
+    for tool in tools_data.keys():
+        get_stats_for_tool(tools_data[tool], tool, config["root_folder"])
+
+    logger.info("Connecting to GITHUB API to get clone info")
+
+    if (config["backup"]["activate"]):
+        backup_data = config["backup"]
         logger_backup = logging.getLogger("Backup")
+        # We can face several errors when making the backup
+        # The most usual will be the network connection error to the webdab server
+        # But maybe there are others
         try:
-            files:list = [args.clone_info, args.views_info, args.download_info, args.pages_info, args.docker, args.conda, args.referrals_info]
-            files:list = list(filter(os.path.exists, files))
+            files:list = [os.path.join(config["root_folder"], file) for file in os.listdir(config["root_folder"]) if file.endswith(".csv")]
             logger_backup.info("Backup of {} files".format(len(files)))
-            tar_gz_file:str = "backup-stats-{}.tar.gz".format(datetime.datetime.today().strftime('%Y-%m-%d'))
+            logger_backup.debug("Files to backup: {}".format(files))
+            filename:str = "backup-stats-{}.tar.gz".format(datetime.datetime.today().strftime('%Y-%m-%d'))
+            tar_gz_file:str = os.path.join(config["root_folder"], filename)
+            logger_backup.debug("Backup file: {}".format(tar_gz_file))
             backup._tar_gz(files, tar_gz_file)
             logger_backup.info("Generated backup file: {}".format(tar_gz_file))
-            backup._upload(args.backup, tar_gz_file, tar_gz_file, args.backup_user, args.backup_password)
-            logger_backup.info("Backup file uploaded succesfully")
+            status = backup._upload(backup_data["backup_url_folder"], tar_gz_file, filename, backup_data["user"], backup_data["password"])
+            logger_backup.debug("Status code: {}".format(status))
+            if (status == 204):
+                logger_backup.info("Backup file uploaded succesfully")
+            elif (status == 404):
+                logger_backup.error("Remote folder to store the backup is not found: {}".format(backup_data["backup_url_folder"]))
+                
         except urllib.error.HTTPError as neterror:
             logger_backup.error("Could not upload backup because of error: {}".format(neterror))
+        except Exception as error:
+            logger_backup.error("Unhandled error: {}".format(error))
+            logger_backup.error("Backup not completed.")
 
 if __name__ == "__main__":
     main()
