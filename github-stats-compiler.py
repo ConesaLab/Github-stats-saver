@@ -34,23 +34,9 @@ def parseargs():
 
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("-u", "--user", type=str, help="User owner of the repository in github")
-    parser.add_argument("-r", "--repo", type=str, help="name of repository in github")
-    parser.add_argument("-c", "--clone_info", type=str, help="Filename to save clone info", default="clone.csv")
-    parser.add_argument("-v", "--views_info", type=str, help="Filename to save views info", default="visits.csv")
-    parser.add_argument("-d", "--download_info", type=str, help="Filename to save clone info", default="download.csv")
-    parser.add_argument("-docker", "--docker", type=str, help="Filename to save docker info", default="docker_stats.csv")
-    parser.add_argument("-du", "--docker_user", type=str, help="Username of Dockerhub", default=None)
-    parser.add_argument("-dr", "--docker_repo", type=str, help="Repo name in dockerhub", default=None)
-    parser.add_argument("-conda", "--conda", type=str, help="Filename to save conda info", default="conda_stats.csv")
-    parser.add_argument("-ref", "--referrals_info", type=str, help="Filename to save clone info", default="referrals.csv")
-    parser.add_argument("-p", "--pages_info", type=str, help="Filename to save pages info", default="pages_visit.csv")
     parser.add_argument("-l", "--logfile", type=str, help="Filename to save logging info", default="monitor.log")
-    parser.add_argument("-k", "--apikey", type=str, help="Github API key")
-    parser.add_argument("-b", "--backup", type=str, help="Webdav url to save the backup", default=None)
-    parser.add_argument("-bu", "--backup_user", type=str, help="Webdav user to save the backup", default=None)
-    parser.add_argument("-bp", "--backup_password", type=str, help="Webdav password to the backup", default=None)
-    parser.add_argument("-cg", "--config", type=str, help="Config with the repositories to work with", default=None)
+    parser.add_argument("-c", "--config", type=str, help="Config with the repositories to work with", default=None, required=True)
+    parser.add_argument("-d", "--debug", action="store_true", help="Show debug logging info", default=False)
     return parser.parse_args()
 
 def get_github_stats(user:str, repo:str, apikey:str, save_prefix:str):
@@ -127,52 +113,80 @@ def get_conda_stats(owner:str, repo:str, savefile:str):
 
     pass
 
-def get_stats_for_tool(tool:dict, tool_name:str):
+def get_stats_for_tool(tool:dict, tool_name:str, folder:str):
+    # Logger for the tool
     logger = logging.getLogger(tool_name)
     logger.info("Starting: {}".format(tool_name))
+
     for repository in tool.keys():
         logger.info("Connecting to {}".format(repository))
         match repository:
 
             case "github": get_github_stats(tool[repository]["owner"], tool[repository]["repo"], 
-                                            tool[repository]["apikey"], tool[repository]["savefile_prefix"])
+                                            tool[repository]["apikey"], os.path.join(folder, tool[repository]["savefile_prefix"]))
                 
             case "docker": get_docker_stats(tool[repository]["owner"], tool[repository]["repo"],
-                                            tool[repository]["apikey"], tool[repository]["savefile"])
+                                            tool[repository]["apikey"], os.path.join(folder, tool[repository]["savefile"]))
                 
             case "conda":  get_conda_stats(tool[repository]["owner"], 
                                            tool[repository]["repo"],
-                                           tool[repository]["savefile"])
+                                           os.path.join(folder, tool[repository]["savefile"]))
             case "cran":   pass
 
             case "bioconductor": get_bioconductor_stats(tool[repository]["package"], 
-                                                        tool[repository]["savefile"])
+                                                        os.path.join(folder, tool[repository]["savefile"]))
             case _:
                 logging.error("Repository not supported: {}".format(repository))
     pass
 
 def main():
-    args = parseargs()
-    config = config_reader.load_config(args.config)
-    logging.basicConfig(filename=args.logfile, level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    logger = logging.getLogger("GSS") # One logger per repository to make easy to know what failed
-    tools_data = config["tools"]
-    logger.info("="*20+" Starting execution "+"="*20)
-    for tool in tools_data.keys():
-        get_stats_for_tool(tools_data[tool], tool)
-    logger.info("Connecting to GITHUB API to get clone info")
     # There are a lot of errors to handle when trying to connect to the API.
     # Mainly we face the problem of unauthorized of forbidden queries to the
     # API. However, there might be other problems that, even unlikely
     # we might face in the future: API changes or redirection of URL, 
     
-    if (args.backup is not None):
+
+    # Check logging level from arguments to show debug info or not
+    # Debug mode can be activated by using the --debug flag
+    # Else only shos info messages
+    args = parseargs()
+    loglevel = logging.DEBUG if args.debug else logging.INFO 
+    logging.basicConfig(filename=args.logfile, level=loglevel, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    # One logger per repository to make easy to know where failed
+    # GSS (Github stats saver) is the one used for any message not related 
+    # to a specific element of the code (repositories, backup, etc)
+    logger = logging.getLogger("GSS") 
+
+    logger.info("="*20+" Starting execution "+"="*20)
+    logger.debug("Debug mode activated: saving into {}".format(args.logfile))
+    logger.info("Loading config file from: {path}".format(path=args.config))
+
+    config = config_reader.load_config(args.config)
+
+    logger.debug("Config file loaded")
+
+    tools_data = config["tools"]
+
+    logger.info("{} tools to monitor".format(len(tools_data)))
+    logger.debug("{} tools ".format(tools_data))
+
+    for tool in tools_data.keys():
+        get_stats_for_tool(tools_data[tool], tool, config["root_folder"])
+
+    logger.info("Connecting to GITHUB API to get clone info")
+
+    if (config["backup"]["activate"]):
         backup_data = config["backup"]
         logger_backup = logging.getLogger("Backup")
+        # We can face several errors when making the backup
+        # The most usual will be the network connection error to the webdab server
+        # But maybe there are others
         try:
             files:list = [args.clone_info, args.views_info, args.download_info, args.pages_info, args.docker, args.conda, args.referrals_info]
             files:list = list(filter(os.path.exists, files))
             logger_backup.info("Backup of {} files".format(len(files)))
+            logger_backup.debug("Files to backup: {}".format(files))
             tar_gz_file:str = "backup-stats-{}.tar.gz".format(datetime.datetime.today().strftime('%Y-%m-%d'))
             backup._tar_gz(files, tar_gz_file)
             logger_backup.info("Generated backup file: {}".format(tar_gz_file))
@@ -180,6 +194,9 @@ def main():
             logger_backup.info("Backup file uploaded succesfully")
         except urllib.error.HTTPError as neterror:
             logger_backup.error("Could not upload backup because of error: {}".format(neterror))
+        except Exception as error:
+            logger_backup.error("Unhandled error: {}".format(error))
+            logger_backup.error("Backup not completed.")
 
 if __name__ == "__main__":
     main()
