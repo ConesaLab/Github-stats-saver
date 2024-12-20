@@ -10,6 +10,7 @@ from setuptools import setup
 
 setup(
    name='Github-stats-saver',
+   python_requires='>3.10.0', # match case in main file requires 3.10 or newer. Else, 3.5 for type hints is enough
    version='0.1.0',
    description='Recovers stats of a package for several repositories',
    author='Fabián Robledo',
