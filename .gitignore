@@ -4,3 +4,4 @@
 config.json
 __pycache__
 */__pycache__/
+GSS_venv/
