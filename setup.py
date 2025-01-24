@@ -3,15 +3,15 @@
 """
 Created on Mon Oct 21 10:19:44 2024
 
-@author: frobledo
+@author: frobledo @ conesalab
 """
 
 from setuptools import setup
 
 setup(
    name='Github-stats-saver',
-   python_requires='>3.10.0', # match case in main file requires 3.10 or newer. Else, 3.5 for type hints is enough
-   version='0.1.0',
+   python_requires='>3.10.0', # match case in main file requires 3.10 or newer
+   version='0.2.1',
    description='Recovers stats of a package for several repositories',
    author='Fabián Robledo',
    author_email='fabian.robledo@csic.es',  

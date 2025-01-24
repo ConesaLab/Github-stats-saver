@@ -4,7 +4,7 @@
 Created on Tue Oct  8 09:23:05 2024
 
 @author: Fabián Robledo @ conesalab
-@version: 0.9
+@version: 0.2.1
 
 Downloads the insights of a github repo as different csv files
 

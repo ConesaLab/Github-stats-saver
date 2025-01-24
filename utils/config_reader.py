@@ -14,6 +14,30 @@ import collections
 
 logger = logging.getLogger("Config reader")
 
+def _create_dir_if_not_exists(folder:str):
+    """
+        Creates directory folder if not exists
+        Else does nothing
+    """
+    if not os.path.exists(folder):
+        logging.info("Directory {folder} does not exist. Creating it".format(folder=folder))
+        os.makedirs(folder)
+    else:
+        logging.info("Directory {folder} already exists".format(folder=folder))
+
+def check_all_directories(config:dict):
+    """
+        Checks if all directories in config exist
+        If not, creates them
+    """
+    logging.info("Checking if all directories in config exist")
+    tools = config["tools"]
+    for repository in tools:
+        for website in tools["repository"]:
+            pass
+
+
+
 def load_config(path:str) -> dict:
     path:str = os.path.abspath(path)
     logging.info("Loading config file from: {path}".format(path=path))
