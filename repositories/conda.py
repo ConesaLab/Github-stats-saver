@@ -31,8 +31,9 @@ def get_conda_stats(API_url:str, owner:str, repo:str) -> list:
     return text
 
 def save_conda_stats(conda_stats:tuple, conda_file:str) -> None: 
-    print(conda_stats)
+
     if (not os.path.exists(conda_file)):
         logger.info("File {conda_file} does not exist. Creating with headers".format(conda_file=conda_file))
         headers = "Date,Version,Downloads"
+        print(headers, end="\n", file=open(conda_file, "wt"))
     print(conda_stats, end="", file=open(conda_file, "at"))
