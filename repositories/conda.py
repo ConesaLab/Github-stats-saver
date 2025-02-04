@@ -23,12 +23,16 @@ def get_conda_stats(API_url:str, owner:str, repo:str) -> list:
     response = urllib.request.urlopen(request)
     json_data =  json.loads(response.read())
     date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    downloads = ",".join([date, version["version"], str(version["ndownloads"])] for version in json_data["files"])
-    return downloads
+    logging.info("Date recieved: {date}".format(date=date))
+    ## For every version (represented by every row) we have date, version and absolute number of downloads
+    data = [(date, version["version"], str(version["ndownloads"])) for version in json_data["files"]]
+    downloads = [",".join(row) for row in data]
+    text = "\n".join(downloads)
+    return text
 
-def save_conda_stats(conda_stats:tuple, conda_file:str) -> None:
-    data = "\n".join(conda_stats) 
+def save_conda_stats(conda_stats:tuple, conda_file:str) -> None: 
+    print(conda_stats)
     if (not os.path.exists(conda_file)):
         logger.info("File {conda_file} does not exist. Creating with headers".format(conda_file=conda_file))
-        headers = "Version,Downloads"
-    print(data, file=open(conda_file, "at"))
+        headers = "Date,Version,Downloads"
+    print(conda_stats, end="", file=open(conda_file, "at"))
