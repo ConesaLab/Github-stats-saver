@@ -14,6 +14,8 @@ import json
 import os
 import urllib.request
 
+GITHUB_API_PER_PAGE_MAX:int = 100
+
 # Github API URLs
 GITHUB_API_URL:str = "https://api.github.com/repos/{owner}/{repo}/"
 GITHUB_RELEASE_API_URL:str = os.path.join(GITHUB_API_URL, "releases")
@@ -23,7 +25,7 @@ GITHUB_CLONES_API_URL:str = os.path.join(GITHUB_API_URL, "traffic/clones")
 GITHUB_POPULAR_PATHS:str = os.path.join(GITHUB_API_URL, "traffic/popular/paths")
 GITHUB_REFFERAL_SOURCE:str = os.path.join(GITHUB_API_URL, "traffic/popular/referrers")
 GITHUB_TRAFFIC_VIEWS:str = os.path.join(GITHUB_API_URL, "traffic/views")
-GITHUB_ISSUES_API_URL:str = os.path.join(GITHUB_API_URL, "issues")
+GITHUB_ISSUES_API_URL:str = os.path.join(GITHUB_API_URL, "issues?per_page={}&state=all&page={page}".format(GITHUB_API_PER_PAGE_MAX))
 
 ASSETS: str = "assets"
 DOWNLOAD_COUNTS: str = "download_count"
@@ -217,20 +219,29 @@ def _parse_issue(data:dict):
         Parses issues recived from the API to keep only
         relevant information
     """
-    id:str = data["id"] # Unique issue ID
+    id:str = data["number"] # Issue ID showed in the github repo
     open:str = [True if data["state"] == "open" else False] # Whether the issue is open or not
     username_poster:str = data["user"]["login"] # User who opened the issue
     creation_date:str = data["created_at"] # Date when the issue was opened
     closed_date:str = [None if data["closed_at"] == "null" else data["closed_at"]] # When the issue was closed
     number_of_comments:int = data["comments"]
-    is_pull_request:bool = True if "pull_request" in data.keys() else False
+    is_pull_request:bool = "pull_request" in data.keys()
     return [id, open, username_poster, creation_date, closed_date, number_of_comments, is_pull_request]
                        
 
 
 def get_issues(issues_url:str, apikey:str, owner:str, repo:str):
-    data:dict = connect_to_API(issues_url, apikey, owner, repo) # Connect to the endpoint
-    info:list = sorted(list(map(_parse_issue, data)), key=lambda x: x[0])
+    issues:dict = dict()
+    page:int = 0
+    while True:
+        API_PAGE:str = GITHUB_API_PER_PAGE_MAX.format(page=page)
+        api_issues = connect_to_API(API_PAGE, apikey, owner, repo) # Connect to the endpoint
+        if api_issues == {}: break # Finish when no more issues are found
+        else :
+            issues.update(api_issues)
+        if page == 100: # Limit of pages to avoid infinite loops. 10 000 is too much to handle for now
+            break
+    info:list = list(map(_parse_issue, issues))
     return info
 
 def save_issues(issues:list, filename:str):
