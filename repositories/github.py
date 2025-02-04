@@ -23,6 +23,7 @@ GITHUB_CLONES_API_URL:str = os.path.join(GITHUB_API_URL, "traffic/clones")
 GITHUB_POPULAR_PATHS:str = os.path.join(GITHUB_API_URL, "traffic/popular/paths")
 GITHUB_REFFERAL_SOURCE:str = os.path.join(GITHUB_API_URL, "traffic/popular/referrers")
 GITHUB_TRAFFIC_VIEWS:str = os.path.join(GITHUB_API_URL, "traffic/views")
+GITHUB_ISSUES_API_URL:str = os.path.join(GITHUB_API_URL, "issues")
 
 ASSETS: str = "assets"
 DOWNLOAD_COUNTS: str = "download_count"
@@ -210,3 +211,36 @@ def get_downloads_of_release(owner:str, repo:str) -> dict:
         for release in json_data:
             assets_counts[release[RELEASE_TAG]] = _parse_downloads_of_release(release)
     return assets_counts
+
+def _parse_issue(data:dict):
+    """
+        Parses issues recived from the API to keep only
+        relevant information
+    """
+    id:str = data["id"] # Unique issue ID
+    open:str = [True if data["state"] == "open" else False] # Whether the issue is open or not
+    username_poster:str = data["user"]["login"] # User who opened the issue
+    creation_date:str = data["created_at"] # Date when the issue was opened
+    closed_date:str = [None if data["closed_at"] == "null" else data["closed_at"]] # When the issue was closed
+    number_of_comments:int = data["comments"]
+    is_pull_request:bool = True if "pull_request" in data.keys() else False
+    return [id, open, username_poster, creation_date, closed_date, number_of_comments, is_pull_request]
+                       
+
+
+def get_issues(issues_url:str, apikey:str, owner:str, repo:str):
+    data:dict = connect_to_API(issues_url, apikey, owner, repo) # Connect to the endpoint
+    info:list = sorted(list(map(_parse_issue, data)), key=lambda x: x[0])
+    return info
+
+def save_issues(issues:list, filename:str):
+    """
+    Saves parsed info into a csv file
+    """
+    if (not os.path.exists(filename)):
+        with open(filename, "wt") as head_writer:
+            head_writer.write("issue_id,open,creator,created_date,closing_date,number_of_comments,is_pull_request\n")
+    with open(filename, "at") as body_writer:
+        for issue in issues:
+            body_writer.write(",".join(map(str, issue))+"\n")
+
