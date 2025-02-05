@@ -25,7 +25,7 @@ GITHUB_CLONES_API_URL:str = os.path.join(GITHUB_API_URL, "traffic/clones")
 GITHUB_POPULAR_PATHS:str = os.path.join(GITHUB_API_URL, "traffic/popular/paths")
 GITHUB_REFFERAL_SOURCE:str = os.path.join(GITHUB_API_URL, "traffic/popular/referrers")
 GITHUB_TRAFFIC_VIEWS:str = os.path.join(GITHUB_API_URL, "traffic/views")
-GITHUB_ISSUES_API_URL:str = os.path.join(GITHUB_API_URL, "issues?per_page={}&state=all&page={page}".format(GITHUB_API_PER_PAGE_MAX))
+GITHUB_ISSUES_API_URL:str = os.path.join(GITHUB_API_URL, "issues?per_page={}&state=all&page=".format(GITHUB_API_PER_PAGE_MAX))
 
 ASSETS: str = "assets"
 DOWNLOAD_COUNTS: str = "download_count"
@@ -219,11 +219,11 @@ def _parse_issue(data:dict):
         Parses issues recived from the API to keep only
         relevant information
     """
-    id:str = data["number"] # Issue ID showed in the github repo
-    open:str = [True if data["state"] == "open" else False] # Whether the issue is open or not
+    id:str = str(data["number"]) # Issue ID showed in the github repo
+    open:str = True if data["state"] == "open" else False # Whether the issue is open or not
     username_poster:str = data["user"]["login"] # User who opened the issue
     creation_date:str = data["created_at"] # Date when the issue was opened
-    closed_date:str = [None if data["closed_at"] == "null" else data["closed_at"]] # When the issue was closed
+    closed_date:str = None if data["closed_at"] == "null" else data["closed_at"] # When the issue was closed
     number_of_comments:int = data["comments"]
     is_pull_request:bool = "pull_request" in data.keys()
     return [id, open, username_poster, creation_date, closed_date, number_of_comments, is_pull_request]
@@ -231,15 +231,18 @@ def _parse_issue(data:dict):
 
 
 def get_issues(issues_url:str, apikey:str, owner:str, repo:str):
-    issues:dict = dict()
+    issues = []
     page:int = 0
     while True:
-        API_PAGE:str = GITHUB_API_PER_PAGE_MAX.format(page=page)
+        API_PAGE:str = issues_url+str(page)
         api_issues = connect_to_API(API_PAGE, apikey, owner, repo) # Connect to the endpoint
-        if api_issues == {}: break # Finish when no more issues are found
+        if api_issues == []: break # Finish when no more issues are found
         else :
-            issues.update(api_issues)
-        if page == 100: # Limit of pages to avoid infinite loops. 10 000 is too much to handle for now
+            logger.info("Page {page} of issues found".format(page=page))
+            issues += api_issues
+            page += 1
+        if page == 40: # Limit of pages to avoid infinite loops. 10 000 is too much to handle for now
+            logger.warning("Limit of 40 pages reached. Stopping")
             break
     info:list = list(map(_parse_issue, issues))
     return info
@@ -251,7 +254,22 @@ def save_issues(issues:list, filename:str):
     if (not os.path.exists(filename)):
         with open(filename, "wt") as head_writer:
             head_writer.write("issue_id,open,creator,created_date,closing_date,number_of_comments,is_pull_request\n")
-    with open(filename, "at") as body_writer:
+    saved_issues = []
+    # Issues will be updated if the saved issues and the downloaded one is different
+    with open(filename, "rt") as saved_issues_fhand:
+        saved_issues_fhand.readline() # read the file without headers
+        for line in saved_issues_fhand:
+            saved_issues.append(line.strip("\n").split(","))
+    with open(filename, "wt") as body_writer:
+        body_writer.write("issue_id,open,creator,created_date,closing_date,number_of_comments,is_pull_request\n")
         for issue in issues:
-            body_writer.write(",".join(map(str, issue))+"\n")
+            for idx, saved_issue in enumerate(saved_issues):
+                if issue[0] == saved_issue[0]:
+                    logger.info("Issue {issue} was updated".format(issue=issue[0]))
+                    saved_issues[idx] = issue
+                    break
+            else:
+                saved_issues.append(issue)
+        for saved_issue in saved_issues:
+            body_writer.write(",".join(map(str, saved_issue))+"\n")
 
