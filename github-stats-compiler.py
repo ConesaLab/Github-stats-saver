@@ -82,6 +82,7 @@ def get_github_stats(user:str, repo:str, apikey:str, save_prefix:str):
     except urllib.error.HTTPError as httperror:
         logger.error("Could not connect to GITHUB API due to the error: {error}. If its 401 Unauthorized or 403 Forbidden, please check that the api key has push permission".format(error=httperror))
     try:
+        # Referrals data
         logger.info("Connecting to GITHUB API to get referrals data")
         referrals = github.connect_to_API(github.GITHUB_REFFERAL_SOURCE, apikey, user, repo)
         referrals_file:str = save_prefix+"_referrals.csv"
@@ -90,6 +91,13 @@ def get_github_stats(user:str, repo:str, apikey:str, save_prefix:str):
     except urllib.error.HTTPError as httperror:
         logger.error("Could not connect to GITHUB API due to the error: {error}. If its 401 Unauthorized or 403 Forbidden, please check that the api key has push permission".format(error=httperror))
     pass
+    try:
+        # Issues data
+        logger.info("Connecting to GITHUB API to get issues data")
+        issues = github.get_issues(github.GITHUB_ISSUES_API_URL, apikey, user, repo)
+        github.save_issues(issues, save_prefix+"_issues.csv")
+    except urllib.error.HTTPError as httperror:
+        logger.error("Could not connect to GITHUB API due to the error: {error}. If its 401 Unauthorized or 403 Forbidden, please check that the api key has push permission".format(error=httperror))
 
 def get_docker_stats(user:str, repo:str, apikey:str, save_file:str):
     logging.getLogger("Docker")
@@ -107,7 +115,7 @@ def get_conda_stats(owner:str, repo:str, savefile:str):
     logger_conda = logging.getLogger("Conda")
     try:
         conda_stats = conda.get_conda_stats(conda.CONDA_API, owner, repo)
-        conda.save_conda_stats([conda_stats], savefile)
+        conda.save_conda_stats(conda_stats, savefile)
     except urllib.error.HTTPError as httperror:
         logger_conda.error("Error connecting to Conda API: {error}".format(error=httperror))
 
