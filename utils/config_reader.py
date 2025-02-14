@@ -10,7 +10,6 @@ import os
 import json
 import logging
 
-import collections
 
 logger = logging.getLogger("Config reader")
 

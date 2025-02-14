@@ -7,7 +7,6 @@ Created on Mon Oct 21 10:19:30 2024
 """
 
 # Modules needed to connect to the API, parse the info and log the data
-import argparse
 import datetime
 import logging
 import json

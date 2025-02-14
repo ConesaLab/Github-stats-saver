@@ -34,14 +34,20 @@ def parseargs():
 
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("-l", "--logfile", type=str, help="Filename to save logging info", default="monitor.log")
-    parser.add_argument("-c", "--config", type=str, help="Config with the repositories to work with", default=None, required=True)
-    parser.add_argument("-d", "--debug", action="store_true", help="Show debug logging info", default=False)
+    parser.add_argument("-l", "--logfile", type=str,
+                        help="Filename to save logging info",
+                        default="monitor.log")
+    parser.add_argument("-c", "--config", type=str,
+                        help="Config with the repositories to work with",
+                        default=None, required=True)
+    parser.add_argument("-d", "--debug", action="store_true",
+                        help="Show debug logging info",
+                        default=False)
     return parser.parse_args()
 
 def get_github_stats(user:str, repo:str, apikey:str, save_prefix:str):
     logger = logging.getLogger("github")
-    try: 
+    try:
         # Connect to the api, get the info and write it into a csv file
         # An HTTPError is raised if could not connect.
         # TODO: Show the exact error code in the log
@@ -65,7 +71,7 @@ def get_github_stats(user:str, repo:str, apikey:str, save_prefix:str):
     except Exception:
         logger.error("Could not get info from: "+github.GITHUB_API_URL.format(owner=user, repo=repo))
     
-    try: 
+    try:
         logger.info("Connecting to GITHUB API to get views data")
         views = github.connect_to_API(github.GITHUB_TRAFFIC_VIEWS, apikey, user, repo)
         views_file:str = save_prefix+"_views.csv"
@@ -73,7 +79,7 @@ def get_github_stats(user:str, repo:str, apikey:str, save_prefix:str):
         github.save_views_info(views, views_file)
     except urllib.error.HTTPError as httperror:
         logger.error("Could not connect to GITHUB API due to the error: {error}. If its 401 Unauthorized or 403 Forbidden, please check that the api key has push permission".format(error=httperror))
-    try: 
+    try:
         logger.info("Connecting to GITHUB API to get popular pages data")
         pages_file:str = save_prefix+"_pages.csv"
         pages = github.connect_to_API(github.GITHUB_POPULAR_PATHS, apikey, user, repo)
@@ -89,7 +95,6 @@ def get_github_stats(user:str, repo:str, apikey:str, save_prefix:str):
         github.save_referral_info(referrals, referrals_file)
     except urllib.error.HTTPError as httperror:
         logger.error("Could not connect to GITHUB API due to the error: {error}. If its 401 Unauthorized or 403 Forbidden, please check that the api key has push permission".format(error=httperror))
-    pass
 
 def get_docker_stats(user:str, repo:str, apikey:str, save_file:str):
     logging.getLogger("Docker")
@@ -122,30 +127,36 @@ def get_stats_for_tool(tool:dict, tool_name:str, folder:str):
         logger.info("Connecting to {}".format(repository))
         match repository:
 
-            case "github": get_github_stats(tool[repository]["owner"], tool[repository]["repo"], 
-                                            tool[repository]["apikey"], os.path.join(folder, tool[repository]["savefile_prefix"]))
-                
-            case "docker": get_docker_stats(tool[repository]["owner"], tool[repository]["repo"],
-                                            tool[repository]["apikey"], os.path.join(folder, tool[repository]["savefile"]))
-                
-            case "conda":  get_conda_stats(tool[repository]["owner"], 
-                                           tool[repository]["repo"],
-                                           os.path.join(folder, tool[repository]["savefile"]))
-            case "cran":   pass
+            case "github":
+                get_github_stats(tool[repository]["owner"],
+                                 tool[repository]["repo"],
+                                 tool[repository]["apikey"],
+                                 os.path.join(folder, tool[repository]["savefile_prefix"]))
 
-            case "bioconductor": get_bioconductor_stats(tool[repository]["package"], 
-                                                        os.path.join(folder, tool[repository]["savefile"]))
+            case "docker":
+                get_docker_stats(tool[repository]["owner"],
+                                 tool[repository]["repo"],
+                                 tool[repository]["apikey"],
+                                 os.path.join(folder, tool[repository]["savefile"]))
+
+            case "conda":
+                get_conda_stats(tool[repository]["owner"],
+                                tool[repository]["repo"],
+                                os.path.join(folder, tool[repository]["savefile"]))
+            case "cran":
+                pass
+
+            case "bioconductor": 
+                get_bioconductor_stats(tool[repository]["package"],
+                                       os.path.join(folder, tool[repository]["savefile"]))
             case _:
-                logging.error("Repository not supported: {}".format(repository))
-    pass
+                logging.error(f"Repository not supported: {repository}")
 
 def main():
     # There are a lot of errors to handle when trying to connect to the API.
     # Mainly we face the problem of unauthorized of forbidden queries to the
     # API. However, there might be other problems that, even unlikely
-    # we might face in the future: API changes or redirection of URL, 
-    
-
+    # we might face in the future: API changes or redirection of URL...
     # Check logging level from arguments to show debug info or not
     # Debug mode can be activated by using the --debug flag
     # Else only shos info messages
@@ -159,8 +170,8 @@ def main():
     logger = logging.getLogger("GSS") 
 
     logger.info("="*20+" Starting execution "+"="*20)
-    logger.debug("Debug mode activated: saving into {}".format(args.logfile))
-    logger.info("Loading config file from: {path}".format(path=args.config))
+    logger.debug(f"Debug mode activated: saving into {args.logfile}")
+    logger.info(f"Loading config file from: {args.config}")
 
     config = config_reader.load_config(args.config)
 
